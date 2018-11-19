@@ -1,0 +1,80 @@
+pipeline {
+    agent { 
+        dockerfile  {
+            filename 'Dockerfile'
+			args '-u root -v /root/.m2:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock:rw'
+		}
+    }
+    	options {
+		timestamps()
+		disableConcurrentBuilds()
+	}
+    stages {
+        stage('Establish Required Work') {
+            steps {
+                withAwsCredentials (roleArnCredId: 'ARN_SB', externalIdCredId: 'EXTID_SB') {
+                sh "mvn clean"
+            }
+        }
+        stage('Deploy to Sandbox'){
+            when {
+				branch "PR-*"
+				expression { doRelease != 'TRUE' && doDeploy != 'TRUE'}
+			}
+			environment{
+				PDXC_ENV='sandbox'
+				AWS_DEFAULT_REGION='us-east-1'
+				ISFROMGIT='1'
+			}
+            steps{
+                withAwsCredentials (roleArnCredId: 'ARN_SB', externalIdCredId: 'EXTID_SB') {
+					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId:'pdxc-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]) {
+						sh '''
+						echo 'Executing Deploy in sandbox'
+						chmod 777 ./utilities/deploy.sh
+						./utilities/deploy.sh
+						'''		
+					}
+				}
+            }
+        }
+        stage('Publish Release Package'){
+			when {
+				// need to prepare pacakge and upload to artifactory
+				// The merge request would include release.out file with file content being "TRUE"
+				// branch "master"
+				branch "master"
+				expression { doRelease == 'TRUE' }
+			}
+			steps{
+				withAwsCredentials (roleArnCredId: 'ARN_SB', externalIdCredId: 'EXTID_SB') {
+					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId:'pdxc-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]) {
+						sh '''
+							chmod 777 ./utilities/release-package.sh
+							./utilities/release-package.sh
+						'''
+					}
+				}
+			}
+		}
+		stage('Deploy to Deploy'){
+			when {
+				//Deploy to Dev environment
+				//Merge would include release.out file with the file being true 
+				//The tirgger file to have the verion name in name as *_1.0
+				branch "master"
+				expression {doRelease == 'TRUE'}
+				}
+			steps{
+				withAwsCredentials (roleArnCredId: 'ARN_DEV' , externalIdCredId: 'EXTID_DEV') {
+					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'pdxc-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]){
+						sh '''
+							echo 'Executing deploy in DEV'
+							chmod 777 ./utilities/deploy_dev.sh
+							./utilities/deploy_dev.sh
+						'''
+					}
+				}
+			}
+		}
+		stage('')
