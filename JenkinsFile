@@ -22,13 +22,13 @@ pipeline {
 				expression { doRelease != 'TRUE' && doDeploy != 'TRUE'}
 			}
 			environment{
-				PDXC_ENV='sandbox'
+				BOX_ENV='sandbox'
 				AWS_DEFAULT_REGION='us-east-1'
 				ISFROMGIT='1'
 			}
             steps{
                 withAwsCredentials (roleArnCredId: 'ARN_SB', externalIdCredId: 'EXTID_SB') {
-					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId:'pdxc-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]) {
+					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId:'**-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]) {
 						sh '''
 						echo 'Executing Deploy in sandbox'
 						chmod 777 ./utilities/deploy.sh
@@ -48,7 +48,7 @@ pipeline {
 			}
 			steps{
 				withAwsCredentials (roleArnCredId: 'ARN_SB', externalIdCredId: 'EXTID_SB') {
-					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId:'pdxc-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]) {
+					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId:'*-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]) {
 						sh '''
 							chmod 777 ./utilities/release-package.sh
 							./utilities/release-package.sh
@@ -67,7 +67,7 @@ pipeline {
 				}
 			steps{
 				withAwsCredentials (roleArnCredId: 'ARN_DEV' , externalIdCredId: 'EXTID_DEV') {
-					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'pdxc-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]){
+					withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '*-jenkins', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_PASSWORD']]){
 						sh '''
 							echo 'Executing deploy in DEV'
 							chmod 777 ./utilities/deploy_dev.sh
